@@ -1,0 +1,52 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+    config.vm.box = "ubuntu/focal64"  # Updated to use Ubuntu 20.04 (Focal Fossa)
+
+    # Configure VM resources
+    config.vm.provider "virtualbox" do |vb|
+        vb.memory = "4096"  # Set RAM to 4 GB
+        vb.cpus = 2        # Set CPUs to 2
+        #vb.disksize.size = '20GB'  # Set disk size to 20 GB
+    end
+  
+    config.vm.provision "shell", inline: <<-SHELL
+      apt-get update
+      apt-get install -y sudo
+  
+      # Add user adminusr
+      useradd -m -s /bin/bash adminusr
+      echo 'adminusr:1qaz2wsx' | chpasswd
+      echo 'adminusr ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+  
+      # Allow SSH access from anywhere
+      sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+      service ssh restart
+      apt update
+      apt install -y curl openssl conntrack socat ipset ipvsadm chrony nfs-client ceph glusterfs-client
+      
+      # Add Docker's official GPG key
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+  
+      # Set up the Docker stable repository for amd64
+      sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  
+      # Update the package database
+      sudo apt-get update
+  
+      # Install the latest versions of Docker, Docker Compose, and containerd
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+      sudo apt-get install -y docker-compose
+      
+      # Collect the downloaded packages
+      mkdir ~/docker-packages
+      cp /var/cache/apt/archives/docker*.deb ~/docker-packages/
+      cp /var/cache/apt/archives/containerd*.deb ~/docker-packages/
+      cp /var/cache/apt/archives/compose*.deb ~/docker-packages/
+      
+      curl -sfL https://get-kk.kubesphere.io | sh -
+    SHELL
+  
+    config.vm.network "private_network", ip: "192.168.56.20"
+end
